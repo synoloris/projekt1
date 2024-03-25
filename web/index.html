@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Wettervorhersage für Schübelbach SZ</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+        <!-- Plotly.js -->
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="script.js" async></script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h1 class="mt-4">Wettervorhersage für Schübelbach SZ</h1>
+        <small>Quelle: <a href="weather.com" target="_blank">weather.com</a> - by vonlalor (Version 1.0)</small>
+        <div id="scrapeDataFields" class="mt-5">
+            <div class="form-group">
+                <label for="predictionType">Wettervorhersage:</label>
+                <select class="form-control" id="predictionType"  aria-label="Art der Vorhersage">
+                    <option selected value="">Auswählen</option>
+                    <!--<option value="today">Heute</option>-->
+                    <option value="tenday">10 Tage</option>
+                </select>
+            </div>
+            <button class="form-control btn-secondary" onclick="getWeatherData(document.getElementById('predictionType').value)">
+                Wetterdaten holen 
+            </button>
+        </div>
+        <div id="answerPart" class="mt-5" style="visibility: hidden;">
+            <div id="buttonContainer"></div>
+            <div id="plot"></div>
+            <h4 id="title">Wettervorhersage für Schübelbach SZ:</h4>
+            <div id="answer"></div>
+        </div>
+    </div>
+</body>
+
+</html>
