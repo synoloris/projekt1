@@ -3,6 +3,7 @@ from flask_pymongo import PyMongo
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
 from flask.helpers import send_file
+import ssl
 from pymongo import MongoClient
 from statsmodels.tsa.arima.model import ARIMA
 import json
@@ -15,7 +16,7 @@ from flask import Flask, jsonify
 from pymongo import MongoClient
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import pandas as pd
 from sklearn.impute import SimpleImputer
 import numpy as np
@@ -26,16 +27,24 @@ cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 # MongoDB Konfiguration
-app.config['MONGO_URI'] = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-cluster.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+app.config['MONGO_URI'] = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-project1.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
 mongo = PyMongo(app)
 
-if __name__ == "__main__":
-    app.run(debug=True)
 
 @app.route("/")
 @cross_origin()
 def indexPage():
     return send_file("web/index.html")
+
+@app.route("/webscrape")
+@cross_origin()
+def webscrapePage():
+    return send_file("web/webscrape.html")
+
+@app.route("/predict")
+@cross_origin()
+def predictPage():
+    return send_file("web/predict.html")
     
 @app.route("/weather", methods=["GET"])
 @cross_origin()
@@ -60,9 +69,12 @@ def getWeatherData():
                 forecast_items = soup.find_all('details', class_='DaypartDetails--DayPartDetail--2XOOV')
             elif (predictionType == "today"):
                 forecast_items = soup.find_all('div', class_='TodayDetailsCard--detailsContainer--2yLtL')
+            elif (predictionType == "monthly"):
+                forecast_items = soup.find_all("button", class_="CalendarDateCell--dayCell--3ED7m")
 
             # Eine leere Liste erstellen, um die gescrapten Daten zu speichern
             data = []
+            first_iteration = True  # Variable zur Überprüfung der ersten Iteration
 
             # Durch die Wettervorhersageelemente iterieren und Daten extrahieren
             for item in forecast_items:
@@ -146,7 +158,7 @@ def getWeatherData():
                     moon = moonrise + " - " + moonset
                     data.append({
                         'Day': day,
-                        'Temperatur': temperature,
+                        'Temperature': temperature,
                         'Humidity': humidity,
                         'UV Index': uv_index,
                         'Sun': sun,
@@ -217,6 +229,52 @@ def getWeatherData():
                         'Visibility': visibility,
                         'Moonphase': moonphase
                     })
+                
+                elif (predictionType == "monthly"):
+                    date = item.get("data-id")
+                    if date:
+                        parts = date.split("/")
+                        # Extrahieren der Zahlen
+                        month = parts[0].split("-")[-1]
+                        day = parts[1] 
+                    else:
+                        month = ''
+                        day =''
+
+                    year_elem = soup.find('select', class_='CalendarMonthPicker--yearPicker--1i9uX')
+                    if year_elem:
+                        year = year_elem.find("option", selected=True).get("value")
+                    else:
+                        year = ''
+
+                    temp_high_element = item.find('div', class_="CalendarDateCell--tempHigh--3k9Yr")
+                    if temp_high_element:
+                        temp_high_span = temp_high_element.find("span")
+                        if temp_high_span:
+                            temp_high = temp_high_span.text.strip()
+                        else:
+                            temp_high = ''
+                    else:
+                        temp_high = ''
+
+                    temp_low_element = item.find('div', class_="CalendarDateCell--tempLow--2WL7c")
+                    if temp_low_element:
+                        temp_low_span = temp_low_element.find("span")
+                        if temp_low_span:
+                            temp_low = temp_low_span.text.strip()
+                        else:
+                            temp_low = ''
+                    else:
+                        temp_low = ''
+
+                    temperature = temp_low +" / "+ temp_high
+                    # Füge das Ergebnis zum Array hinzu
+                    data.append({
+                        'Day': day,
+                        'Month': month,
+                        'Year': year,
+                        'Temperature': temperature
+                    })
 
             # Die Daten in ein Pandas DataFrame umwandeln
             df = pd.DataFrame(data)
@@ -224,9 +282,11 @@ def getWeatherData():
             # DataFrame in JSON konvertieren und als Antwort zurückgeben
             json_data = df.to_json(orient='records')
 
-            # Zeitstempel generieren
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            # Array in einen formatierten JSON-String umwandeln
+            json_ot_string = json.dumps(json_data, indent=4)
 
+            # JSON-String in der Konsole ausgeben
+            print(json_ot_string)
             createJSONFile(json_data, predictionType)
     
             # JSON-Daten als Flask-Antwortobjekt zurückgeben
@@ -238,43 +298,69 @@ def getWeatherData():
         # Im Falle eines Fehlers eine Fehlermeldung zurückgeben
         return jsonify({"error": str(e)}), 500
 
-def convertData(jsonData):
+def convertData(jsonData, predictionType):
     convertedData = []
     # Aktuelles Datum
     current_date = datetime.now()
+
+    first_iteration = True
+
     for entry in jsonData:
-        sunrise_parts = entry["Sun"].split()
-        sunset_parts = entry["Sun"].split()
+        if (predictionType == "tenday"):
+            sunrise_parts = entry["Sun"].split()
+            sunset_parts = entry["Sun"].split()
+            
+            sunrise = sunrise_parts[0] if len(sunrise_parts) > 1 else "--"
+            sunset = sunset_parts[2] if len(sunset_parts) > 1 else "--"
+            
+            moonrise_parts = entry["Moon"].split()
+            moonset_parts = entry["Moon"].split()
+            
+            moonrise = moonrise_parts[0] if len(moonrise_parts) > 1 else "--"
+            moonset = moonset_parts[2] if len(moonset_parts) > 1 else "--"
+            
+            convertedEntry = {
+                "day": current_date.strftime("%d.%m.%Y"),
+                "temperatureMin": entry["Temperature"].split()[0][:-1],
+                "temperatureMax": entry["Temperature"].split()[2][:-1] if entry["Temperature"].split()[2] != "--" else "--",
+                "humidity": entry["Humidity"][:-1],
+                "uvIndex": entry["UV Index"].split()[0],
+                "sunrise": sunrise,
+                "sunset": sunset,
+                "moonRise": moonrise,
+                "moonSet": moonset,
+                "moonphase": entry["Moonphase"],
+                "wind": entry["Wind"].split()[1],
+                "wintryMix": entry["Wintry Mix"][:-1]
+            }
+            convertedData.append(convertedEntry)
+            # Nächsten Tag berechnen
+            current_date += timedelta(days=1)
+
+        elif (predictionType == "today"):
+            convertedEntry = {
+                "day": "0.0.0000",
+                "temperatureMin": "--",
+                "temperatureMax": "--"
+            }
+            convertedData.append(convertedEntry)
+        elif (predictionType == "monthly"):
+            
+            month = entry["Month"]
+            year = entry["Year"]
+            day = entry["Day"]
+            
+            convertedEntry = {
+                "day": str(day).zfill(2) + "." + str(month).zfill(2) + "." + year,
+                "temperatureMin": entry["Temperature"].split()[0][:-1] if entry["Temperature"].split()[0] != "--" else "--",
+                "temperatureMax": entry["Temperature"].split()[2][:-1] if entry["Temperature"].split()[2] != "--" else "--"
+            }
+            convertedData.append(convertedEntry)
         
-        sunrise = sunrise_parts[0] if len(sunrise_parts) > 1 else "--"
-        sunset = sunset_parts[2] if len(sunset_parts) > 1 else "--"
-        
-        moonrise_parts = entry["Moon"].split()
-        moonset_parts = entry["Moon"].split()
-        
-        moonrise = moonrise_parts[0] if len(moonrise_parts) > 1 else "--"
-        moonset = moonset_parts[2] if len(moonset_parts) > 1 else "--"
-        
-        convertedEntry = {
-            "day": current_date.strftime("%d.%m.%Y"),
-            "temperatureMin": entry["Temperatur"].split()[0][:-1],
-            "temperatureMax": entry["Temperatur"].split()[2][:-1] if entry["Temperatur"].split()[2] != "--" else "--",
-            "humidity": entry["Humidity"][:-1],
-            "uvIndex": entry["UV Index"].split()[0],
-            "sunrise": sunrise,
-            "sunset": sunset,
-            "moonRise": moonrise,
-            "moonSet": moonset,
-            "moonphase": entry["Moonphase"],
-            "wind": entry["Wind"].split()[1],
-            "wintryMix": entry["Wintry Mix"][:-1]
-        }
-        convertedData.append(convertedEntry)
-        # Nächsten Tag berechnen
-        current_date += timedelta(days=1)
     return convertedData
 
 def createJSONFile(jsonData, predictionType):
+    print(f"Erstelle JSON File...")
     # Absoluten Pfad zum aktuellen Skript erhalten
     current_directory = os.path.dirname(os.path.abspath(__file__))
     
@@ -289,7 +375,6 @@ def createJSONFile(jsonData, predictionType):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     filename = os.path.join(target_directory, f"data_{timestamp}_{predictionType}.json")
     
-
     # JSON-String in ein Python-Objekt (Dictionary/Liste) konvertieren
     try:
         jsonData = json.loads(jsonData)
@@ -298,7 +383,7 @@ def createJSONFile(jsonData, predictionType):
         return
     
     # JSON-Daten umstrukturieren
-    converted_data = convertData(jsonData)
+    converted_data = convertData(jsonData, predictionType)
 
     # JSON-Daten in Datei schreiben
     try:
@@ -309,10 +394,11 @@ def createJSONFile(jsonData, predictionType):
         print(f"Fehler beim Erstellen der JSON-Datei: {str(e)}")
 
 @app.route("/writeToDB", methods=["POST"])
+@cross_origin()
 def write_latest_json_to_mongodb():
     try: 
         # Verbindung zur MongoDB herstellen
-        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-cluster.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-project1.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
         client = MongoClient(connection_string)
         db = client['weather_prediction']  # Hier den Namen deiner Datenbank einfügen
         collection = db['weather_prediction']  # Hier den Namen deiner Sammlung einfügen
@@ -338,22 +424,27 @@ def write_latest_json_to_mongodb():
 
         # Für jedes Datum prüfen, ob es bereits in der Datenbank vorhanden ist
         for entry in json_data:
-            existing_entry = collection.find_one({"day": entry["day"]})
-            if existing_entry:
-                print(f'Das Datum "{entry["day"]}" ist bereits in der Datenbank vorhanden. Gehe zum nächsten')
-            else:
-                # Wenn das Datum nicht vorhanden ist, fügen Sie es der Datenbank hinzu
-                collection.insert_one(entry)
+                existing_entry = collection.find_one({"day": entry["day"]})
+                if existing_entry:
+                    # Wenn das Datum bereits vorhanden ist, fügen Sie neue Felder hinzu
+                    update_data = {key: value for key, value in entry.items() if key != "day"}  # Alle Felder außer "day"
+                    collection.update_one({"day": entry["day"]}, {"$set": update_data})
+                    print(f'Die Daten für den Tag "{entry["day"]}" wurden erfolgreich aktualisiert.')
+                else:
+                    # Wenn das Datum nicht vorhanden ist, fügen Sie es der Datenbank hinzu
+                    collection.insert_one(entry)
 
         return jsonify({'success': "Die neuesten JSON-Daten wurden erfolgreich in die MongoDB eingefügt."}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+"""
 @app.route("/trainModel", methods=["POST"])
 def trainModel():
     try: 
         # Verbindung zur MongoDB herstellen
-        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-cluster.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-project1.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
         client = MongoClient(connection_string)
         db = client['weather_prediction']
         collection = db['weather_prediction']
@@ -383,15 +474,52 @@ def trainModel():
         model = LinearRegression()
         model.fit(X, y)
 
-        # Schritt 3: Modell als JSON serialisieren
-        model_json = json.dumps(model.coef_.tolist())  # Hier können Sie die Modellparameter oder andere relevante Informationen serialisieren
+        # Schritt 3: Metriken berechnen
+        y_pred = model.predict(X)
+        mae = mean_absolute_error(y, y_pred)
+        mse = mean_squared_error(y, y_pred)
+        r2 = r2_score(y, y_pred)
+
+        # Schritt 4: Modell als JSON serialisieren
+        model_json = json.dumps({
+            'coefficients': model.coef_.tolist(),
+            'MAE': mae,
+            'MSE': mse,
+            'R2': r2
+        })
 
         return jsonify({'success': "Das Modell wurde erfolgreich trainiert.", 'model': model_json}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+"""
+
+def trainModel():
+    try:
+        # Verbindung zur MongoDB herstellen
+        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-project1.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+        client = MongoClient(connection_string)
+        db = client['weather_prediction']
+        collection = db['weather_prediction']
+
+        # Vergangene Wetterdaten aus der MongoDB abrufen
+        past_weather_data = list(collection.find())
+
+        # Daten in DataFrame konvertieren
+        data = pd.DataFrame(past_weather_data)
+
+        # Hier das ARIMA-Modell trainieren
+        # Dummy-Code: Hier müsstest du das ARIMA-Modell tatsächlich trainieren
+        model = ARIMA(data['temperatureMax'], order=(5,1,0))
+        fitted_model = model.fit()
+
+        return fitted_model
+
+    except Exception as e:
+        raise Exception("Fehler beim Trainieren des ARIMA-Modells: " + str(e))
 
 
+"""
 @app.route("/predictWeatherData", methods=["POST"])
 def calculate_prediction():
     try: 
@@ -403,7 +531,7 @@ def calculate_prediction():
         prediction_date = datetime.strptime(prediction_date_str, "%d.%m.%Y")
 
         # Verbindung zur MongoDB herstellen
-        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-cluster.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+        connection_string = "mongodb+srv://mongodb:dtYs30jvO1dES5oV@mdm-mongodb-project1.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
         client = MongoClient(connection_string)
         db = client['weather_prediction']
         collection = db['weather_prediction']
@@ -438,3 +566,42 @@ def calculate_prediction():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+"""
+
+@app.route("/predictWeatherData", methods=["POST"])
+def calculate_prediction():
+    try: 
+        # Datum aus der POST-Anfrage extrahieren
+        prediction_date_str = request.form.get("predictionDate")
+        min_temp = float(request.form.get("minTemp"))
+        
+        if not prediction_date_str:
+            return jsonify({"error": "Datum nicht angegeben."}), 400
+
+        prediction_date = datetime.strptime(prediction_date_str, "%Y-%m-%d")
+
+        # Trainiere das ARIMA-Modell
+        model = trainModel()
+
+        # Mache die Vorhersage für das gegebene Datum und die minimale Temperatur
+        predicted_temperature_max = predictTemperature(model, prediction_date, min_temp)
+
+        return jsonify({'temperatureMax': predicted_temperature_max}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def predictTemperature(model, prediction_date, min_temp):
+    try:
+        # Hier die Vorhersage für die maximale Temperatur treffen
+        # Dummy-Code: Hier müsstest du die Vorhersage basierend auf dem ARIMA-Modell und den gegebenen Parametern treffen
+        predicted_temperature_max = min_temp + 10  # Dummy-Vorhersage, bitte ersetzen
+
+        return predicted_temperature_max
+
+    except Exception as e:
+        raise Exception("Fehler bei der Vorhersage der maximalen Temperatur: " + str(e))
+    
+if __name__ == "__main__":
+    app.run(debug=True)

@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Home - Wettervorhersage für Schübelbach SZ</title>
+    <title>Vorhersagen - Wettervorhersage für Schübelbach SZ</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -20,16 +20,34 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
-                <a class="nav-item nav-link active" href="/">Home</a>
+                <a class="nav-item nav-link" href="/">Home</a>
                 <a class="nav-item nav-link" href="/webscrape">Webscrapen</a>
-                <a class="nav-item nav-link" href="/predict">Vorhersagen</a>
+                <a class="nav-item nav-link active" href="/predict">Vorhersagen</a>
             </div>
         </div>
     </nav>
     <div class="container-fluid mt-4">
-        <h1 class="my-2">Home - Projekt 1</h1>
-        <p class="mb-2">Willkommen bei meinem Python Projekt 1 für das Fach MDM!</p>
-        <small>Quelle: <a href="weather.com" target="_blank">weather.com</a> - by vonlalor (Version 1.0)</small>
+        <h1 class="my-2">Vorhersagen</h1>
+        <div id="predictDataFields" class="mt-3">
+            <form onsubmit="return validatePredictionForm(event)" id="predictForm">
+                <div class="form-group">
+                    <label for="predictionType">Mindesttemperatur:</label>
+                    <input placeholder="z.B. 25" class="form-control"id="minTempInput" min="-10" max="35" required type="number" name="minTemp" />
+                    <small class="invalid-feedback" id="minTempInputError"></small>
+                </div>
+                <div class="form-group">
+                    <label for="predictionType">Datum:</label>
+                    <input class="form-control" required id="dateInput" type="date" name="date" value="" />
+                    <small class="invalid-feedback" id="dateInputError"></small>
+                </div>
+                <button class="form-control btn-secondary">
+                    vorhersagen
+                </button>
+            </form>
+        </div>
+        <div id="answerPart" class="mt-5" style="visibility: hidden;">
+            <div id="answer"></div>
+        </div>
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
         integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
@@ -40,5 +58,11 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
+        <script>
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow = tomorrow.toISOString().slice(0, 10);
+            document.getElementById("dateInput").value = tomorrow;
+        </script>
 </body>
 </html>

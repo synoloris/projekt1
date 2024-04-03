@@ -15,7 +15,7 @@ function getWeatherData(type) {
             response.text().then(function (data) {
                 var contentArray = parseJSONToObj(data);
                 answer.innerHTML = generateTableHTML(contentArray);
-                buttonContainer.innerHTML = '<button class="form-control btn-primary my-5" onclick="writeToDB()">Daten in MongoDB integrieren</button>';
+                buttonContainer.innerHTML = '<p>Daten gefunden!</p><button class="form-control btn-primary my-5" onclick="writeToDB()">Daten in MongoDB integrieren</button>';
                 answerPart.style.visibility = "visible";
                 scrapeDataFields.style.display = "none";
             });
@@ -32,7 +32,7 @@ function writeToDB() {
     }).then(
         response => {
             response.json().then(function (data) {
-                buttonContainer.innerHTML = '<p>Die Daten wurden erfolgreich in die MongoDB geschrieben.</p><button class="form-control btn-primary my-5" onclick="trainModel()">Model anhand MongoDB Einträgen trainieren</button>';
+                buttonContainer.innerHTML = '<p>Die Daten wurden erfolgreich in die MongoDB geschrieben.</p><button class="form-control btn-primary my-5" onclick="trainModel()">Model anzeigen</button>';
             });
         }
     ).catch(
@@ -46,15 +46,19 @@ function trainModel() {
     }).then(response => {
         response.json().then(function (data) {
             // Daten aus dem JSON-Objekt extrahieren
-            const modelCoefficients = JSON.parse(data.model);
-    
+            const jsonObject = JSON.parse(data.model);
+            const modelCoefficients = jsonObject.coefficients;
+            const mae = jsonObject.MAE;
+            const mse = jsonObject.MSE;
+            const r2 = jsonObject.R2;
+
             // Diagramm erstellen
             const plotData = [{
                 x: ['temperatureMax', 'humidity', 'uvIndex', 'wind', 'wintryMix'],
                 y: modelCoefficients,
                 type: 'bar'
             }];
-    
+
             const layout = {
                 title: 'Model Coefficients',
                 xaxis: {
@@ -64,36 +68,21 @@ function trainModel() {
                     title: 'Coefficient Value'
                 }
             };
-    
-            buttonContainer.innerHTML = 'Berechnungen durchgeführt:';
-            answer.style.display = "none";
-            title.style.display = "none";
+
+            title.innerHTML = 'Metriken:';
+            buttonContainer.style.display = "none"
+            answer.style.display = "block";
+            title.style.display = "block";
             Plotly.newPlot('plot', plotData, layout);
+
+            // Anzeigen der Metriken
+            answer.innerHTML = `<p>Mean Absolute Error (MAE): ${mae}</p>
+                                <p>Mean Squared Error (MSE): ${mse}</p>
+                                <p>R² (Bestimmtheitsmass): ${r2}</p>`;
         });
     }).catch(error => console.log('Error fetching model:', error));    
 }
-function getPrediction(predictionDate) {
-    if (!predictionDate || predictionDate == "") {
-        answer.innerHTML = 'Bitte Datum angeben';
-        answerPart.style.visibility = "visible";
-        return
-    }
-    // Get Sentiment
-    fetch('/predictWeatherData?' + new URLSearchParams({
-        predictionDate: predictionDate,
-    }), {
-        method: 'GET',
-        headers: {}
-    }).then(
-        response => {
-            response.text().then(function (data) {
-                console.log(data);
-            });
-        }
-    ).catch(
-        error => console.log(error)
-    );
-}
+
 function parseJSONToObj(data) {
     console.log(data);
     try {
@@ -133,4 +122,62 @@ function generateTableHTML(data) {
     }
     html += '</table>';
     return html;
+}
+
+function validatePredictionForm(event) {
+    event.preventDefault(); // Verhindert das Absenden des Formulars, wenn Bedingungen nicht erfüllt sind
+    
+    error = false;
+    // Temperatur validieren
+    var minTemp = parseInt(document.getElementById('minTempInput').value);
+    if (minTemp < -10 || minTemp > 35 || minTemp === '' || minTemp == NaN) {
+        error = true;
+        $('#minTempInputError').html("Die Temperatur muss zwischen -10 und 35 liegen").show();
+    } else {
+        $('#minTempInputError').html("").hide();
+    }
+
+    // Datum validieren
+    var predictionDate = new Date(document.getElementById('dateInput').value);
+    var currentDate = new Date();
+
+    if (predictionDate <= currentDate) {
+        error = true;
+        $('#dateInputError').html("Das Datum muss in der Zukunft liegen").show();
+    } else {
+        $('#dateInputError').html("").hide();
+    }
+
+    // Wenn alles in Ordnung ist, kann das Formular abgesendet werden
+    if (!error) {
+        // Datum parsen
+        var date = new Date(predictionDate);
+
+        // Jahr, Monat und Tag extrahieren
+        var year = date.getFullYear();
+        var month = ("0" + (date.getMonth() + 1)).slice(-2); // Monat von 0-11, daher +1 und führende Nullen hinzufügen
+        var day = ("0" + date.getDate()).slice(-2); // Führende Nullen hinzufügen
+
+        // Datum im Format "YYYY-MM-DD" erstellen
+        var formattedDate = year + "-" + month + "-" + day;
+        // Hier AJAX Aufruf ans Backend        
+        fetch('/api/predict?' + new URLSearchParams({
+            minTemp: minTemp,
+            predictionDate: formattedDate,
+        }), {
+            method: 'GET',
+            headers: {}
+        }).then(
+            response => {
+                response.text().then(function (data) {
+                    const jsonObject = JSON.parse(data);
+                    answer.innerHTML = 'vorhergesagte Maximaltemperatur: ' + jsonObject.max_temperature_prediction;
+                    answerPart.style.visibility = "visible";
+                });
+            }
+        ).catch(
+            error => console.log(error)
+        );
+    }
+    return false;
 }
