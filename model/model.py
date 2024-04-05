@@ -1,3 +1,7 @@
+# cd model
+# python model.py -u '***MONGODB_URI***'
+
+
 import argparse
 import pandas as pd
 from pymongo import MongoClient

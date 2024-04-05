@@ -21,7 +21,7 @@
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
                 <a class="nav-item nav-link" href="/">Home</a>
-                <a class="nav-item nav-link" href="/webscrape">Webscrapen</a>
+                <a class="nav-item nav-link" href="/webscrape">Webscrape</a>
                 <a class="nav-item nav-link active" href="/predict">Vorhersagen</a>
             </div>
         </div>
@@ -29,9 +29,9 @@
     <div class="container-fluid mt-4">
         <h1 class="my-2">Vorhersagen</h1>
         <div id="predictDataFields" class="mt-3">
-            <form onsubmit="return validatePredictionForm(event)" id="predictForm">
+            <form onsubmit="return validatePredictionForm(event)" id="predictForm" style="max-width: 500px; width: 100%;">
                 <div class="form-group">
-                    <label for="predictionType">Mindesttemperatur:</label>
+                    <label for="predictionType">Mindesttemperatur (°C):</label>
                     <input placeholder="z.B. 25" class="form-control"id="minTempInput" min="-10" max="35" required type="number" name="minTemp" />
                     <small class="invalid-feedback" id="minTempInputError"></small>
                 </div>
@@ -58,11 +58,17 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
-        <script>
-            var tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow = tomorrow.toISOString().slice(0, 10);
-            document.getElementById("dateInput").value = tomorrow;
-        </script>
+    <script>
+        /* Datum Input mit Zukunftsdatum befüllen */
+        var futureDate = new Date(); // Aktuelles Datum
+        futureDate.setDate(futureDate.getDate() + 1); // Einen Tag hinzufügen
+        futureDate.setMonth(futureDate.getMonth() + 1); // Einen Monat hinzufügen
+
+        // Das Ergebnis in das ISO-Format umwandeln und nur das Datum extrahieren (YYYY-MM-DD)
+        futureDate = futureDate.toISOString().slice(0, 10);
+
+        // Das Ergebnis in das HTML-Element mit der ID "dateInput" einfügen
+        document.getElementById("dateInput").value = futureDate;
+    </script>
 </body>
 </html>

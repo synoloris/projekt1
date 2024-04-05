@@ -5,7 +5,7 @@ function getWeatherData(type) {
         return
     }
     // Get Sentiment
-    fetch('/weather?' + new URLSearchParams({
+    fetch('/api/scrapeWeatherDataForVisualization?' + new URLSearchParams({
         type: type,
     }), {
         method: 'GET',
@@ -15,7 +15,7 @@ function getWeatherData(type) {
             response.text().then(function (data) {
                 var contentArray = parseJSONToObj(data);
                 answer.innerHTML = generateTableHTML(contentArray);
-                buttonContainer.innerHTML = '<p>Daten gefunden!</p><button class="form-control btn-primary my-5" onclick="writeToDB()">Daten in MongoDB integrieren</button>';
+                buttonContainer.innerHTML = '<a href="/webscrape" class="btn btn-primary mb-5">zurück</a><p>Folgende Daten wurden von weather.com gescraped:</p>';
                 answerPart.style.visibility = "visible";
                 scrapeDataFields.style.display = "none";
             });
@@ -23,64 +23,6 @@ function getWeatherData(type) {
     ).catch(
         error => console.log(error)
     );
-}
-function writeToDB() {
-    /* Hier aufruf ans Backend um anhand den Daten eine Training & Model zu erstellen */
-    fetch('/writeToDB', {
-        method: 'POST',
-        headers: {}
-    }).then(
-        response => {
-            response.json().then(function (data) {
-                buttonContainer.innerHTML = '<p>Die Daten wurden erfolgreich in die MongoDB geschrieben.</p><button class="form-control btn-primary my-5" onclick="trainModel()">Model anzeigen</button>';
-            });
-        }
-    ).catch(
-        error => console.log('Error writing to MongoDB model:', error)
-    );
-}
-function trainModel() {
-    fetch('/trainModel', {
-        method: 'POST',
-        headers: {}
-    }).then(response => {
-        response.json().then(function (data) {
-            // Daten aus dem JSON-Objekt extrahieren
-            const jsonObject = JSON.parse(data.model);
-            const modelCoefficients = jsonObject.coefficients;
-            const mae = jsonObject.MAE;
-            const mse = jsonObject.MSE;
-            const r2 = jsonObject.R2;
-
-            // Diagramm erstellen
-            const plotData = [{
-                x: ['temperatureMax', 'humidity', 'uvIndex', 'wind', 'wintryMix'],
-                y: modelCoefficients,
-                type: 'bar'
-            }];
-
-            const layout = {
-                title: 'Model Coefficients',
-                xaxis: {
-                    title: 'Feature'
-                },
-                yaxis: {
-                    title: 'Coefficient Value'
-                }
-            };
-
-            title.innerHTML = 'Metriken:';
-            buttonContainer.style.display = "none"
-            answer.style.display = "block";
-            title.style.display = "block";
-            Plotly.newPlot('plot', plotData, layout);
-
-            // Anzeigen der Metriken
-            answer.innerHTML = `<p>Mean Absolute Error (MAE): ${mae}</p>
-                                <p>Mean Squared Error (MSE): ${mse}</p>
-                                <p>R² (Bestimmtheitsmass): ${r2}</p>`;
-        });
-    }).catch(error => console.log('Error fetching model:', error));    
 }
 
 function parseJSONToObj(data) {
@@ -171,7 +113,7 @@ function validatePredictionForm(event) {
             response => {
                 response.text().then(function (data) {
                     const jsonObject = JSON.parse(data);
-                    answer.innerHTML = 'vorhergesagte Maximaltemperatur: ' + jsonObject.max_temperature_prediction;
+                    answer.innerHTML = 'vorhergesagte Maximaltemperatur am '+ day + "." + month + "." + year+': <br /> <b>' + jsonObject.max_temperature_prediction+'</b> °C';
                     answerPart.style.visibility = "visible";
                 });
             }

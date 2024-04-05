@@ -21,19 +21,18 @@
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
                 <a class="nav-item nav-link" href="/">Home</a>
-                <a class="nav-item nav-link active" href="/webscrape">Webscrapen</a>
+                <a class="nav-item nav-link active" href="/webscrape">Webscrape</a>
                 <a class="nav-item nav-link" href="/predict">Vorhersagen</a>
             </div>
         </div>
     </nav>
     <div class="container-fluid mt-4">
-        <h1 class="my-2">Webscrape</h1>
-        <div id="scrapeDataFields" class="mt-3">
+        <h1 class="my-2">Webscrape Visualisierung</h1>
+        <div id="scrapeDataFields" class="mt-3"  style="max-width: 500px; width: 100%;">
             <div class="form-group">
                 <label for="predictionType">Vorhersage:</label>
                 <select class="form-control" id="predictionType" aria-label="Art der Vorhersage">
                     <option selected value="">Auswählen</option>
-                    <!--<option value="today">Heute</option>-->
                     <option value="tenday">10 Tage</option>
                     <option value="monthly">Monatliches Wetter</option>
                 </select>
@@ -45,7 +44,7 @@
         <div id="answerPart" class="mt-5" style="visibility: hidden;">
             <div id="buttonContainer"></div>
             <div id="plot"></div>
-            <h4 id="title">Wettervorhersage für Schübelbach SZ:</h4>
+            <h4 class="mt-5" id="title">Wettervorhersage für Schübelbach SZ:</h4>
             <div id="answer"></div>
         </div>
     </div>

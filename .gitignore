@@ -1,5 +1,5 @@
 # Ignoriere den Inhalt des Ordners "web/files"
-web/files/*
+web/files/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
