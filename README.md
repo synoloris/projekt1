@@ -29,12 +29,12 @@ inspired by https://www.geeksforgeeks.org/scrapping-weather-prediction-data-usin
 
 ## App
 * Backend: Python Flask (backend/service.py)
-* Frontend: SvelteKit (build still manually)
+* Frontend: Bootstrap / VanillaJS (web Folder)
 
 ## Deployment with Docker
 
 * Dockerfile
 * Install dependencies with pip
-* Copy Frontend (prebuilt, TODO Build)
+* Copy Frontend (prebuilt)
 * Azure Blob Storage: Zugriffsschlüssel als Umgebungsvariable
 
