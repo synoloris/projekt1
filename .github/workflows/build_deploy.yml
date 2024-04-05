@@ -1,0 +1,38 @@
+name: Build Docker image and deploy to Azure Container Instance
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo content
+        uses: actions/checkout@v2
+
+      # Weitere Schritte hier, wie z.B. Installation von Abhängigkeiten, Ausführung von Tests usw.
+      
+      # Docker-Image erstellen
+      - name: Build Docker image
+        run: docker build -t vonlalor/weatherpredictor .
+
+      # Docker-Image taggen
+      - name: Tag Docker image
+        run: docker tag vonlalor/weatherpredictor vonlalor/weatherpredictor:latest
+
+      # Docker-Image in Docker Hub pushen
+      - name: Push Docker image to Docker Hub
+        run: docker push vonlalor/weatherpredictor:latest
+
+      # Azure Container löschen
+      - name: Delete Azure Container
+        run: az container delete --resource-group mdm-weatherpredictor --name mdm-weatherpredictor
+
+      # Azure Container erstellen und starten
+      - name: Create and start Azure Container Instance
+        run: |
+          az group create --name mdm-weatherpredictor --location switzerlandnorth                  
+          az container create --resource-group mdm-weatherpredictor --name mdm-weatherpredictor --image vonlalor/weatherpredictor:latest --dns-name-label mdm-weatherpredictor --ports 80 --environment-variables 'AZURE_STORAGE_CONNECTION_STRING=${{secrets.AZURE_STORAGE_CONNECTION_STRING}}'
