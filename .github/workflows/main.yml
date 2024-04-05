@@ -21,20 +21,13 @@ jobs:
       - name: install python packages
         run: pip install -r requirements.txt
           
-      - name: start flask server
-        run: |
-          python app.py &  # start flask server in the background
-          sleep 5  # wait for flask server to start
-
       - name: scrape weather data 
-        run: |
-          # send HTTP request to Flask server to trigger weather data scraping
-          curl ${{ secrets.APP_URI }}/weather?type=monthly
+        working-directory: web/scripts
+        run: python ./webscrape.py -t "monthly"
 
-      - name: run python function to upload data to mongodb
-        run: |
-          # write latest JSON to mongodb
-          curl -X POST ${{ secrets.APP_URI }}/writeToDB
+      - name: upload data to mongodb
+        working-directory: web/scripts
+        run: python ./mongo_import.py -u "${{secrets.MONGODB_URI}}"
 
       - name: build model
         working-directory: model
