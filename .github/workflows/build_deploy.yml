@@ -14,7 +14,15 @@ jobs:
         uses: actions/checkout@v2
 
       # Weitere Schritte hier, wie z.B. Installation von Abhängigkeiten, Ausführung von Tests usw.
-      
+
+      # Azure-CLI installieren
+      - name: Setup Azure CLI
+        uses: azure/login@v1
+
+      # Anmelden bei Azure
+      - name: Login to Azure
+        run: az login --service-principal -u ${{ secrets.AZURE_SERVICE_PRINCIPAL_ID }} -p ${{ secrets.AZURE_SERVICE_PRINCIPAL_PASSWORD }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+
       # Docker-Image erstellen
       - name: Build Docker image
         run: docker build -t vonlalor/weatherpredictor .
@@ -25,12 +33,14 @@ jobs:
 
       # Docker-Image in Docker Hub pushen
       - name: Push Docker image to Docker Hub
-        run: docker push vonlalor/weatherpredictor:latest
-
+        run: |
+          echo "${{ secrets.DOCKER_ACCESS_TOKEN }}" | docker login -u vonlalor --password-stdin
+          docker push vonlalor/weatherpredictor:latest
+          
       # Azure Container löschen
       - name: Delete Azure Container
         run: az container delete --resource-group mdm-weatherpredictor --name mdm-weatherpredictor
-
+   
       # Azure Container erstellen und starten
       - name: Create and start Azure Container Instance
         run: |
